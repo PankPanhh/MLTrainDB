@@ -1,21 +1,19 @@
 <?php
-
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\JenkinsController;
+use App\Services\JenkinsService;
 
-Route::get('/', fn() => redirect()->route('jenkins.index'));
+Route::view('/jenkins-dashboard', 'jenkins');
 
-// List jobs
-Route::get('/jenkins', [JenkinsController::class, 'index'])->name('jenkins.index');
+Route::get('/api/jenkins/run', function (JenkinsService $jenkins) {
+    $job = request('job', 'MLTrainDB');
+    $params = request()->except('job');
+    return response()->json($jenkins->triggerJob($job, $params));
+});
 
-// Trigger job
-Route::get('/jenkins/trigger', [JenkinsController::class, 'triggerJob'])->name('jenkins.trigger');
+Route::get('/api/jenkins/status/{job}', function (JenkinsService $jenkins, $job) {
+    return response()->json($jenkins->getJobStatus($job));
+});
 
-// View log
-Route::get('/jenkins/log/{id}', [JenkinsController::class, 'viewLog'])->name('jenkins.log');
-
-// Realtime log (Ajax)
-Route::get('/jenkins/log-realtime', [JenkinsController::class, 'realtimeLog'])->name('jenkins.log.realtime');
-
-// Git push
-Route::post('/jenkins/git-push', [JenkinsController::class, 'gitPush'])->name('jenkins.git.push');
+Route::get('/api/jenkins/log/{job}', function (JenkinsService $jenkins, $job) {
+    return response($jenkins->getJobLog($job));
+});

@@ -3,12 +3,13 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class JenkinsService
 {
-    protected string $baseUrl;
-    protected string $user;
-    protected string $token;
+    protected $baseUrl;
+    protected $user;
+    protected $token;
 
     public function __construct()
     {
@@ -17,44 +18,72 @@ class JenkinsService
         $this->token = config('services.jenkins.token');
     }
 
-    protected function getCrumb(): string
+    public function triggerJob($jobName, $params = [])
     {
-        $response = Http::withBasicAuth($this->user, $this->token)
-                        ->get("{$this->baseUrl}/crumbIssuer/api/json");
+        $url = "{$this->baseUrl}/job/{$jobName}/build";
 
-        return $response->json()['crumb'] ?? '';
+        // Nếu có parameters, dùng endpoint /buildWithParameters
+        if (!empty($params)) {
+            $url = "{$this->baseUrl}/job/{$jobName}/buildWithParameters";
+        }
+
+        try {
+            $response = Http::withBasicAuth($this->user, $this->token)
+                ->asForm()
+                ->post($url, $params);
+
+            if ($response->successful()) {
+                return ['status' => 'ok', 'message' => "Job '{$jobName}' triggered"];
+            }
+
+            return ['status' => 'error', 'message' => $response->body()];
+        } catch (\Throwable $e) {
+            Log::error("Jenkins Trigger Error: " . $e->getMessage());
+            return ['status' => 'error', 'message' => $e->getMessage()];
+        }
     }
 
-    public function triggerJob(string $jobName): bool
+    public function getJobStatus($jobName)
     {
-        $crumb = $this->getCrumb();
-        $response = Http::withBasicAuth($this->user, $this->token)
-                        ->withHeaders(['Jenkins-Crumb' => $crumb])
-                        ->post("{$this->baseUrl}/job/{$jobName}/build");
+        $url = "{$this->baseUrl}/job/{$jobName}/lastBuild/api/json";
 
-        return $response->successful();
+        try {
+            $response = Http::withBasicAuth($this->user, $this->token)->get($url);
+
+            if (!$response->successful()) {
+                return ['status' => 'error', 'message' => $response->body()];
+            }
+
+            $data = $response->json();
+
+            return [
+                'status' => 'ok',
+                'building' => $data['building'] ?? false,
+                'result' => $data['result'] ?? 'UNKNOWN',
+                'timestamp' => $data['timestamp'] ?? null,
+                'duration' => $data['duration'] ?? null
+            ];
+        } catch (\Throwable $e) {
+            Log::error("Jenkins Status Error: " . $e->getMessage());
+            return ['status' => 'error', 'message' => $e->getMessage()];
+        }
     }
 
-    public function getJobStatus(string $jobName): array
+    public function getJobLog($jobName)
     {
-        $response = Http::withBasicAuth($this->user, $this->token)
-                        ->get("{$this->baseUrl}/job/{$jobName}/lastBuild/api/json");
+        $url = "{$this->baseUrl}/job/{$jobName}/lastBuild/logText/progressiveText";
 
-        return $response->json() ?? [];
-    }
+        try {
+            $response = Http::withBasicAuth($this->user, $this->token)->get($url);
 
-    public function getJobLog(string $jobName, int $start = 0): array
-    {
-        $url = "{$this->baseUrl}/job/{$jobName}/lastBuild/logText/progressiveText?start={$start}";
-        $response = Http::withBasicAuth($this->user, $this->token)->get($url);
-        $text = $response->body();
-        $size = intval($response->header('X-Text-Size', 0));
-        $more = filter_var($response->header('X-More-Data', false), FILTER_VALIDATE_BOOLEAN);
+            if (!$response->successful()) {
+                return "Error getting log: " . $response->body();
+            }
 
-        return [
-            'text' => $text,
-            'size' => $size,
-            'more' => $more,
-        ];
+            return $response->body();
+        } catch (\Throwable $e) {
+            Log::error("Jenkins Log Error: " . $e->getMessage());
+            return "Exception: " . $e->getMessage();
+        }
     }
 }

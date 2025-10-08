@@ -1,60 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Jenkins Jobs</title>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <meta charset="UTF-8">
+    <title>Jenkins Dashboard</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #ffffff; /* nền trắng */
+            color: #000000; /* chữ đen */
+            padding: 30px; 
+        }
+        h1 { 
+            color: #007bff; /* xanh dương nổi bật */
+            margin-bottom: 20px; 
+        }
+        .job-list { list-style: none; padding: 0; }
+        .job-list li { margin-bottom: 15px; }
+        a { 
+            text-decoration: none; 
+            color: #ffffff; 
+            background-color: #007bff; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        a:hover { 
+            background-color: #0056b3; 
+        }
+        footer {
+            margin-top: 40px;
+            color: #555555;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
-<h1>Jenkins Jobs</h1>
-
-@if(session('success'))
-    <p style="color:green">{{ session('success') }}</p>
-@endif
-
-<form action="{{ route('jenkins.trigger') }}" method="get">
-    <button type="submit">Trigger MLTrainingDashboard</button>
-</form>
-
-<table border="1" cellpadding="5" cellspacing="0">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Job Name</th>
-            <th>Status</th>
-            <th>Triggered At</th>
-            <th>Log</th>
-        </tr>
-    </thead>
-    <tbody>
+    <h1>Jenkins Jobs Dashboard</h1>
+    <ul class="job-list">
         @foreach($jobs as $job)
-        <tr>
-            <td>{{ $job->id }}</td>
-            <td>{{ $job->job_name }}</td>
-            <td>{{ $job->status }}</td>
-            <td>{{ $job->triggered_at }}</td>
-            <td><a href="{{ route('jenkins.log', $job->id) }}">View Log</a></td>
-        </tr>
+            <li>
+                <a href="{{ route('jenkins.triggerTerminal', ['job' => $job]) }}">{{ $job }}</a>
+            </li>
         @endforeach
-    </tbody>
-</table>
-
-<h2>Git Push</h2>
-<form id="gitPushForm">
-    Branch: <input type="text" name="branch" value="main">
-    Message: <input type="text" name="message" value="Laravel push via Jenkins">
-    <button type="submit">Push</button>
-</form>
-<pre id="gitOutput"></pre>
-
-<script>
-document.getElementById('gitPushForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    axios.post("{{ route('jenkins.git.push') }}", Object.fromEntries(formData))
-        .then(res => { document.getElementById('gitOutput').innerText = res.data.output; })
-        .catch(err => { console.error(err); });
-});
-</script>
-
+    </ul>
 </body>
 </html>
