@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'jenkins' => [
+        'url' => env('JENKINS_URL'),
+        'user' => env('JENKINS_USER'),
+        'token' => env('JENKINS_TOKEN'),
+    ],
+
+
 ];
